@@ -42,7 +42,7 @@ def generate_tiles(raw_image, channel_list, run_combat=False):
 for sub_folder in os.listdir(channel_image_folder):
     sub_folder_path = os.path.join(channel_image_folder, sub_folder)
     slide_num = int(sub_folder[-1])
-    # if slide_num in [1,2,3,4,5,6,7,8,9] : continue
+    # if slide_num in [1,2,3,4,5] : continue
     file_prefix = '/EM TNBCa {}_Core*.tif'.format(slide_num)
     save_path_ = '/srv/scratch/bic/piumi/mesmer/all_slides_new/slide{}/'.format(slide_num)
     print(os.path.basename(sub_folder_path), '#####', file_prefix, '#####', save_path_)
@@ -90,7 +90,6 @@ for sub_folder in os.listdir(channel_image_folder):
             # if count ==15: break
 
         X_data = np.array(X_data)
-        print(X_data.shape)
         nuclear = np.stack((X_data[:,:,:,0],X_data[:,:,:,0]), axis=-1)
         PDL1    = np.stack((X_data[:,:,:,0],X_data[:,:,:,1]), axis=-1)
         CD20    = np.stack((X_data[:,:,:,0],X_data[:,:,:,2]), axis=-1)
@@ -99,6 +98,14 @@ for sub_folder in os.listdir(channel_image_folder):
         CD68    = np.stack((X_data[:,:,:,0],X_data[:,:,:,5]), axis=-1)
         CD8     = np.stack((X_data[:,:,:,0],X_data[:,:,:,6]), axis=-1)
 
+        X_data_array = np.zeros(X_data.shape)
+        nuclear_array= np.zeros((X_data.shape[0], tile_resize[0], tile_resize[1]))
+        PDL1_array   = np.zeros((X_data.shape[0], tile_resize[0], tile_resize[1]))
+        CD20_array   = np.zeros((X_data.shape[0], tile_resize[0], tile_resize[1]))
+        PaCK_array   = np.zeros((X_data.shape[0], tile_resize[0], tile_resize[1]))
+        CD3_array    = np.zeros((X_data.shape[0], tile_resize[0], tile_resize[1]))
+        CD68_array   = np.zeros((X_data.shape[0], tile_resize[0], tile_resize[1]))
+        CD8_array    = np.zeros((X_data.shape[0], tile_resize[0], tile_resize[1]))
         for tile in range(X_data.shape[0]):
             nuclear_image = app.predict(np.expand_dims(nuclear[tile,:,:,:], 0), image_mpp=0.5, compartment='nuclear')
             PDL1_image    = app.predict(np.expand_dims(PDL1[tile,:,:,:],0), image_mpp=0.5, compartment='whole-cell')
@@ -108,29 +115,39 @@ for sub_folder in os.listdir(channel_image_folder):
             CD68_image    = app.predict(np.expand_dims(CD68[tile,:,:,:],0), image_mpp=0.5, compartment='whole-cell')
             CD8_image     = app.predict(np.expand_dims(CD8 [tile,:,:,:],0), image_mpp=0.5, compartment='whole-cell')
             
-            new_dict ={}
-            new_dict['X_data'] = X_data[tile,:,:,:]
-            new_dict['nuclear_pred']= nuclear_image[0,:,:,0]
-            new_dict['PDL1_pred']   = PDL1_image[0,:,:,0]
-            new_dict['CD20_pred']   = CD20_image[0,:,:,0]
-            new_dict['PaCK_pred']   = PaCK_image[0,:,:,0]
-            new_dict['CD3_pred']    = CD3_image[0,:,:,0]
-            new_dict['CD68_pred']   = CD68_image[0,:,:,0]
-            new_dict['CD8_pred']    = CD8_image[0,:,:,0]
-
-            # print(new_dict['X_data'].shape, new_dict['nuclear_pred'].shape, new_dict['PDL1_pred'].shape)
+            X_data_array[tile,:,:,:] = X_data[tile,:,:,:]
+            nuclear_array[tile,:,:]= nuclear_image[0,:,:,0]
+            PDL1_array[tile,:,:]   = PDL1_image[0,:,:,0]
+            CD20_array[tile,:,:]   = CD20_image[0,:,:,0]
+            PaCK_array[tile,:,:]   = PaCK_image[0,:,:,0]
+            CD3_array[tile,:,:]    = CD3_image[0,:,:,0]
+            CD68_array[tile,:,:]   = CD68_image[0,:,:,0]
+            CD8_array[tile,:,:]    = CD8_image[0,:,:,0]
 
             # rgb_images = create_rgb_image(np.expand_dims(X_data[tile,:,:,:2],0), channel_colors=['green', 'blue'])
-            # overlay_nuclear = make_outline_overlay(rgb_data=rgb_images, predictions=nuclear_image)
-            # overlay_cell = make_outline_overlay(rgb_data=rgb_images, predictions=PDL1_image)
+            # overlay_nuclear = make_outline_overlay(rgb_data=rgb_images, predictions=np.expand_dims(nuclear_array[tile,:,:], (0,-1)))
+            # overlay_cell = make_outline_overlay(rgb_data=rgb_images, predictions=np.expand_dims(PDL1_array[tile,:,:], (0,-1)))
             # cv2.imwrite('/srv/scratch/z5315726/mIF/mesmer/tmp/'+'{}_25_rbg.tif'.format(tile),rgb_images[0, :,:,:])
             # cv2.imwrite('/srv/scratch/z5315726/mIF/mesmer/tmp/'+'{}_25_nuc.tif'.format(tile),overlay_nuclear[0, :,:,:])
             # cv2.imwrite('/srv/scratch/z5315726/mIF/mesmer/tmp/'+'{}_25_cell.tif'.format(tile),overlay_cell[0, :,:,:])
+            # sys.exit(0)
+        
+        new_dict ={}
+        new_dict['X_data']      = X_data_array
+        new_dict['nuclear_pred']= nuclear_array
+        new_dict['PDL1_pred']   = PDL1_array
+        new_dict['CD20_pred']   = CD20_array
+        new_dict['PaCK_pred']   = PaCK_array
+        new_dict['CD3_pred']    = CD3_array
+        new_dict['CD68_pred']   = CD68_array
+        new_dict['CD8_pred']    = CD8_array
 
-            base = 'slide_' + str(slide_num) + '_core_' + str(rN) + '_' + str(cN)
-            pickle_file = os.path.join(save_path_, base +'.p')
-            with open(pickle_file, 'wb') as fp:
-                pickle.dump(new_dict, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        # print(new_dict['X_data'].shape, new_dict['nuclear_pred'].shape, new_dict['PDL1_pred'].shape)
+
+        base = 'slide_' + str(slide_num) + '_core_' + str(rN) + '_' + str(cN)
+        pickle_file = os.path.join(save_path_, base +'.p')
+        with open(pickle_file, 'wb') as fp:
+            pickle.dump(new_dict, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
         # # create rgb overlay of image data for visualization
         # rgb_images = create_rgb_image(X_data[:,:,:,:2], channel_colors=['green', 'blue'])
